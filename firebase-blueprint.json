@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "User account information and profile data",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "The user ID matching request.auth.uid"
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "User display name"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 150,
+          "description": "User email address"
+        },
+        "avatarUrl": {
+          "type": "string",
+          "maxLength": 500,
+          "description": "User avatar URL"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "User account creation timestamp"
+        }
+      },
+      "required": ["id", "email"]
+    },
+    "SavedCV": {
+      "title": "Saved CV Item",
+      "description": "Tailored CV and research evaluation report saved by user",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique report/CV identifier"
+        },
+        "userId": {
+          "type": "string",
+          "description": "Owner user identifier"
+        },
+        "title": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Role and company title"
+        },
+        "company": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Target company name"
+        },
+        "role": {
+          "type": "string",
+          "maxLength": 100,
+          "description": "Target job title"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Last updated timestamp"
+        },
+        "qualificationScore": {
+          "type": "number",
+          "description": "Qualification evaluation match score 0-100"
+        }
+      },
+      "required": ["id", "userId", "company", "role"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": {
+        "$ref": "#/entities/User"
+      },
+      "description": "Collection storing user profiles"
+    },
+    "/users/{userId}/saved_cvs/{cvId}": {
+      "schema": {
+        "$ref": "#/entities/SavedCV"
+      },
+      "description": "Subcollection storing tailored CVs and reports belonging to user"
+    },
+    "/users/{userId}/saved_profile/{profileId}": {
+      "description": "Subcollection storing saved compiled candidate profile"
+    }
+  }
+}

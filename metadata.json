@@ -1,0 +1,6 @@
+{
+  "name": "BlackApple",
+  "description": "AI-powered Deep Research CV Studio with authentication, custom styling, template selection, and PDF export.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

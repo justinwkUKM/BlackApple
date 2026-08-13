@@ -1,0 +1,69 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'email'])
+        && data.id is string && data.id.size() <= 128
+        && data.email is string && data.email.size() <= 150
+        && (!('name' in data) || (data.name is string && data.name.size() <= 100))
+        && (!('avatarUrl' in data) || (data.avatarUrl is string && data.avatarUrl.size() <= 500));
+    }
+
+    function isValidSavedCV(data, ownerId) {
+      return data.keys().hasAll(['id', 'userId', 'company', 'role'])
+        && data.id is string && data.id.size() <= 128
+        && data.userId == ownerId
+        && data.company is string && data.company.size() <= 100
+        && data.role is string && data.role.size() <= 100;
+    }
+
+    // Default Deny Catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Users Collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming());
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().id == existing().id;
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Saved CVs Subcollection
+      match /saved_cvs/{cvId} {
+        allow get: if isOwner(userId) && isValidId(userId) && isValidId(cvId);
+        allow list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(cvId) && isValidSavedCV(incoming(), userId);
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(cvId) && isValidSavedCV(incoming(), userId) && incoming().id == existing().id && incoming().userId == existing().userId;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(cvId);
+      }
+
+      // Saved Profile Subcollection
+      match /saved_profile/{profileId} {
+        allow read, write: if isOwner(userId) && isValidId(userId) && isValidId(profileId);
+      }
+    }
+  }
+}
