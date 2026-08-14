@@ -127,7 +127,7 @@ function saveUsersDB(users: UserAccount[]) {
   }
 }
 
-export function getCurrentUser(): UserAccount {
+export function getCurrentUser(): UserAccount | null {
   try {
     const raw = localStorage.getItem(CURRENT_USER_KEY);
     if (raw) {
@@ -136,9 +136,7 @@ export function getCurrentUser(): UserAccount {
   } catch (e) {
     console.error('Failed to get current user:', e);
   }
-  // Default to demo user if not logged in
-  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(DEMO_USER));
-  return DEMO_USER;
+  return null;
 }
 
 export function setCurrentUser(user: UserAccount | null): void {

@@ -1,9 +1,9 @@
 import { UserProfileData, SavedUserProfile } from '../types';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { doc, getDoc, setDoc, deleteDoc } from 'firebase/firestore';
 
-const LOCAL_STORAGE_KEY_PREFIX = 'BLACKAPPLE_SAVED_PROFILE_';
-const LOCAL_STORAGE_URLS_KEY_PREFIX = 'BLACKAPPLE_SAVED_URLS_';
+const LOCAL_STORAGE_KEY_PREFIX = 'ALAMAKCVLAGI_SAVED_PROFILE_';
+const LOCAL_STORAGE_URLS_KEY_PREFIX = 'ALAMAKCVLAGI_SAVED_URLS_';
 
 export function getLocalStorageProfileKey(userId: string | null): string {
   return LOCAL_STORAGE_KEY_PREFIX + (userId || 'guest');
@@ -76,6 +76,9 @@ export function clearSavedUserProfileLocal(userId: string | null): void {
 
 // Firestore operations for logged in user
 export async function fetchUserProfileFirestore(userId: string): Promise<SavedUserProfile | null> {
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return getSavedUserProfileLocal(userId);
+  }
   const path = `users/${userId}/saved_profile/main`;
   try {
     const snap = await getDoc(doc(db, 'users', userId, 'saved_profile', 'main'));
@@ -85,7 +88,7 @@ export async function fetchUserProfileFirestore(userId: string): Promise<SavedUs
     return null;
   } catch (e) {
     console.warn('Could not fetch user profile from Firestore:', e);
-    return null;
+    return getSavedUserProfileLocal(userId);
   }
 }
 
@@ -95,6 +98,9 @@ export async function saveUserProfileFirestore(
   urls: { websiteUrl?: string; linkedinUrl?: string; githubUrl?: string }
 ): Promise<SavedUserProfile> {
   const saved = saveUserProfileLocal(userId, profile, urls);
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return saved;
+  }
   const path = `users/${userId}/saved_profile/main`;
   try {
     await setDoc(doc(db, 'users', userId, 'saved_profile', 'main'), saved, { merge: true });
@@ -106,6 +112,9 @@ export async function saveUserProfileFirestore(
 
 export async function deleteUserProfileFirestore(userId: string): Promise<void> {
   clearSavedUserProfileLocal(userId);
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return;
+  }
   const path = `users/${userId}/saved_profile/main`;
   try {
     await deleteDoc(doc(db, 'users', userId, 'saved_profile', 'main'));

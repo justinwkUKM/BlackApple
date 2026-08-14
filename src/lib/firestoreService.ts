@@ -6,11 +6,15 @@ import {
   collection,
   deleteDoc,
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from './firebase';
+import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { UserAccount, SavedCVItem, FullAnalysisReport } from '../types';
-import { convertReportToSavedCV } from './authStore';
+import { convertReportToSavedCV, getUserCVs, saveUserCV, deleteUserCV } from './authStore';
 
 export async function syncUserToFirestore(user: UserAccount): Promise<void> {
+  // Only attempt Firestore write if the active Firebase Auth user matches the target ID
+  if (!auth.currentUser || auth.currentUser.uid !== user.id) {
+    return;
+  }
   const path = `users/${user.id}`;
   try {
     await setDoc(doc(db, 'users', user.id), {
@@ -26,6 +30,9 @@ export async function syncUserToFirestore(user: UserAccount): Promise<void> {
 }
 
 export async function fetchUserFromFirestore(userId: string): Promise<UserAccount | null> {
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return null;
+  }
   const path = `users/${userId}`;
   try {
     const docSnap = await getDoc(doc(db, 'users', userId));
@@ -39,6 +46,10 @@ export async function fetchUserFromFirestore(userId: string): Promise<UserAccoun
 }
 
 export async function fetchUserCVsFromFirestore(userId: string): Promise<SavedCVItem[]> {
+  // If not signed in with matching Firebase Auth UID, seamlessly return locally cached CVs
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return getUserCVs(userId);
+  }
   const path = `users/${userId}/saved_cvs`;
   try {
     const querySnapshot = await getDocs(collection(db, 'users', userId, 'saved_cvs'));
@@ -60,6 +71,14 @@ export async function saveUserCVToFirestore(
     ? convertReportToSavedCV(reportOrItem, userId)
     : reportOrItem;
 
+  // Always save locally for instantaneous offline availability
+  saveUserCV(userId, cvItem);
+
+  // If not authenticated in Firebase as this owner, skip cloud sync
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return;
+  }
+
   const path = `users/${userId}/saved_cvs/${cvItem.id}`;
   try {
     await setDoc(doc(db, 'users', userId, 'saved_cvs', cvItem.id), {
@@ -75,6 +94,12 @@ export async function saveUserCVToFirestore(
 }
 
 export async function deleteUserCVFromFirestore(userId: string, cvId: string): Promise<void> {
+  deleteUserCV(userId, cvId);
+
+  if (!auth.currentUser || auth.currentUser.uid !== userId) {
+    return;
+  }
+
   const path = `users/${userId}/saved_cvs/${cvId}`;
   try {
     await deleteDoc(doc(db, 'users', userId, 'saved_cvs', cvId));
