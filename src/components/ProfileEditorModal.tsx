@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserProfileData, SavedUserProfile } from '../types';
-import { X, Check, Plus, Trash2, User, Globe, Linkedin, Link as LinkIcon, ShieldCheck } from 'lucide-react';
+import { X, Check, Plus, Trash2, User, Globe, Linkedin, Link as LinkIcon, ShieldCheck, RefreshCw, Sparkles, AlertCircle, Mail, Phone } from 'lucide-react';
+import { fetchAndParseUserProfile } from '../lib/profileService';
 
 interface ProfileEditorModalProps {
   initialProfile: SavedUserProfile;
@@ -16,6 +17,43 @@ export const ProfileEditorModal: React.FC<ProfileEditorModalProps> = ({
   const [profile, setProfile] = useState<UserProfileData>(initialProfile.userProfile);
   const [urls, setUrls] = useState(initialProfile.urls);
   const [newSkill, setNewSkill] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncStatus, setSyncStatus] = useState<{ message: string; isError?: boolean } | null>(null);
+
+  const handleSyncFromUrls = async () => {
+    if (!urls.websiteUrl && !urls.linkedinUrl && !urls.githubUrl) {
+      setSyncStatus({ message: 'Please enter at least one URL (Website, LinkedIn, or GitHub) below to extract.', isError: true });
+      return;
+    }
+
+    setIsSyncing(true);
+    setSyncStatus({ message: 'Crawling digital footprint and extracting exhaustive profile...' });
+
+    try {
+      const data = await fetchAndParseUserProfile({
+        websiteUrl: urls.websiteUrl?.trim() || undefined,
+        linkedinUrl: urls.linkedinUrl?.trim() || undefined,
+        githubUrl: urls.githubUrl?.trim() || undefined,
+      });
+
+      if (data && data.userProfile) {
+        setProfile(data.userProfile);
+        if (data.urls) {
+          setUrls({
+            websiteUrl: data.urls.websiteUrl || urls.websiteUrl,
+            linkedinUrl: data.urls.linkedinUrl || urls.linkedinUrl,
+            githubUrl: data.urls.githubUrl || urls.githubUrl,
+          });
+        }
+        setSyncStatus({ message: `Successfully extracted ${data.userProfile.experience?.length || 0} roles and ${data.userProfile.projects?.length || 0} projects!` });
+      }
+    } catch (err: any) {
+      console.error('Extraction error inside modal:', err);
+      setSyncStatus({ message: err.message || 'Failed to extract profile from provided URLs.', isError: true });
+    } finally {
+      setIsSyncing(false);
+    }
+  };
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,6 +106,64 @@ export const ProfileEditorModal: React.FC<ProfileEditorModalProps> = ({
     });
   };
 
+  const handleProjectChange = (index: number, field: string, val: any) => {
+    const updated = [...(profile.projects || [])];
+    if (field === 'technologies') {
+      val = typeof val === 'string' ? val.split(',').map(s => s.trim()).filter(Boolean) : val;
+    }
+    updated[index] = { ...updated[index], [field]: val };
+    setProfile({ ...profile, projects: updated });
+  };
+
+  const handleAddProject = () => {
+    setProfile({
+      ...profile,
+      projects: [
+        ...(profile.projects || []),
+        {
+          name: 'Project Name',
+          description: 'Key project features and architectural impact',
+          technologies: ['TypeScript', 'React', 'Node.js'],
+          link: 'https://github.com/username/project',
+        },
+      ],
+    });
+  };
+
+  const handleRemoveProject = (index: number) => {
+    setProfile({
+      ...profile,
+      projects: (profile.projects || []).filter((_, i) => i !== index),
+    });
+  };
+
+  const handleEducationChange = (index: number, field: string, val: any) => {
+    const updated = [...(profile.education || [])];
+    updated[index] = { ...updated[index], [field]: val };
+    setProfile({ ...profile, education: updated });
+  };
+
+  const handleAddEducation = () => {
+    setProfile({
+      ...profile,
+      education: [
+        ...(profile.education || []),
+        {
+          degree: 'Degree / Field of Study',
+          institution: 'University / College Name',
+          year: '2020',
+        },
+      ],
+    });
+  };
+
+  const handleRemoveEducation = (index: number) => {
+    setProfile({
+      ...profile,
+      education: (profile.education || []).filter((_, i) => i !== index),
+    });
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm no-print font-sans">
       <div className="bg-[#0E0E0E] w-full max-w-3xl max-h-[90vh] flex flex-col border border-white/10 rounded-md shadow-2xl overflow-hidden">
@@ -94,16 +190,47 @@ export const ProfileEditorModal: React.FC<ProfileEditorModalProps> = ({
 
         {/* Content Body */}
         <form onSubmit={handleSave} className="p-6 overflow-y-auto space-y-6 flex-1 bg-[#0E0E0E]">
-          {/* Ground Truth Banner */}
-          <div className="p-3 bg-[#00FF41]/10 border border-[#00FF41]/30 rounded-xs text-xs text-[#00FF41] flex items-center gap-2 font-mono">
-            <ShieldCheck className="w-4 h-4 shrink-0" />
-            <span>This profile represents your verified background. Resumes generated for new job descriptions will tailor this data truthfully.</span>
+          {/* Ground Truth Banner & Auto-Extract Action */}
+          <div className="p-4 bg-white/5 border border-white/10 rounded-sm space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-[#00FF41] font-mono">
+                <ShieldCheck className="w-4 h-4 shrink-0 text-[#00FF41]" />
+                <span className="font-bold">Truthful Candidate Profile (Ground-Truth)</span>
+              </div>
+              <button
+                type="button"
+                onClick={handleSyncFromUrls}
+                disabled={isSyncing}
+                className="px-3 py-1.5 bg-[#00FF41] hover:bg-[#00E03A] text-black font-mono font-bold text-xs rounded-xs flex items-center justify-center gap-1.5 transition-all shadow-[0_0_12px_rgba(0,255,65,0.2)] disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {isSyncing ? (
+                  <>
+                    <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                    <span>Extracting Profile Details...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Re-Sync / Auto-Extract from URLs</span>
+                  </>
+                )}
+              </button>
+            </div>
+            {syncStatus && (
+              <div className={`text-[11px] font-mono px-2.5 py-1 rounded-xs flex items-center gap-1.5 ${syncStatus.isError ? 'bg-red-500/10 text-red-400 border border-red-500/20' : 'bg-[#00FF41]/10 text-[#00FF41] border border-[#00FF41]/20'}`}>
+                {syncStatus.isError ? <AlertCircle className="w-3.5 h-3.5 shrink-0" /> : <Check className="w-3.5 h-3.5 shrink-0" />}
+                <span>{syncStatus.message}</span>
+              </div>
+            )}
+            <p className="text-[11px] text-white/50">
+              Resumes generated for any job description are anchored to this verified background to ensure 100% truthful representations without fabricated claims.
+            </p>
           </div>
 
           {/* Personal Info */}
           <div className="space-y-4">
             <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono border-b border-white/10 pb-2">
-              Candidate Identity
+              Candidate Identity & URLs
             </h4>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -135,7 +262,47 @@ export const ProfileEditorModal: React.FC<ProfileEditorModalProps> = ({
                   type="text"
                   value={profile.location || ''}
                   onChange={(e) => setProfile({ ...profile, location: e.target.value })}
+                  placeholder="e.g. San Francisco, CA or Remote"
                   className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs text-white outline-none focus:border-[#00FF41]"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-white/60 mb-1 font-mono flex items-center gap-1">
+                  <Mail className="w-3 h-3 text-[#00FF41]" />
+                  <span>Email Address</span>
+                </label>
+                <input
+                  type="email"
+                  value={profile.email || ''}
+                  onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                  placeholder="e.g. candidate@example.com"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs text-white outline-none focus:border-[#00FF41] font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-white/60 mb-1 font-mono flex items-center gap-1">
+                  <Phone className="w-3 h-3 text-[#00FF41]" />
+                  <span>Phone Number</span>
+                </label>
+                <input
+                  type="tel"
+                  value={profile.phone || ''}
+                  onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
+                  placeholder="e.g. +1 (555) 019-2834"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs text-white outline-none focus:border-[#00FF41] font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-white/60 mb-1 font-mono">Personal / Portfolio Website</label>
+                <input
+                  type="url"
+                  value={urls.websiteUrl || ''}
+                  onChange={(e) => setUrls({ ...urls, websiteUrl: e.target.value })}
+                  placeholder="https://myportfolio.com"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs text-white outline-none focus:border-[#00FF41] font-mono"
                 />
               </div>
 
@@ -145,6 +312,18 @@ export const ProfileEditorModal: React.FC<ProfileEditorModalProps> = ({
                   type="url"
                   value={urls.linkedinUrl || ''}
                   onChange={(e) => setUrls({ ...urls, linkedinUrl: e.target.value })}
+                  placeholder="https://linkedin.com/in/username"
+                  className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs text-white outline-none focus:border-[#00FF41] font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[10px] font-bold uppercase text-white/60 mb-1 font-mono">GitHub URL</label>
+                <input
+                  type="url"
+                  value={urls.githubUrl || ''}
+                  onChange={(e) => setUrls({ ...urls, githubUrl: e.target.value })}
+                  placeholder="https://github.com/username"
                   className="w-full px-3 py-2 bg-white/5 border border-white/10 rounded-xs text-xs text-white outline-none focus:border-[#00FF41] font-mono"
                 />
               </div>
@@ -262,6 +441,138 @@ export const ProfileEditorModal: React.FC<ProfileEditorModalProps> = ({
                       className="w-full p-2 bg-black/40 border border-white/10 rounded-xs text-xs text-white font-mono"
                     />
                   </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Projects & Applications */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                Key Projects & Repositories
+              </h4>
+              <button
+                type="button"
+                onClick={handleAddProject}
+                className="px-2.5 py-1 bg-[#00FF41]/10 text-[#00FF41] border border-[#00FF41]/30 hover:bg-[#00FF41]/20 rounded-xs text-[10px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Project</span>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {profile.projects?.map((proj, idx) => (
+                <div key={idx} className="p-4 bg-white/5 border border-white/10 rounded-xs space-y-3 relative group">
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveProject(idx)}
+                    className="absolute top-3 right-3 text-white/40 hover:text-rose-400 cursor-pointer"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-8">
+                    <div>
+                      <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Project Name</label>
+                      <input
+                        type="text"
+                        value={proj.name}
+                        onChange={(e) => handleProjectChange(idx, 'name', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xs text-xs text-white font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Project Link / Repo URL</label>
+                      <input
+                        type="text"
+                        value={proj.link || ''}
+                        onChange={(e) => handleProjectChange(idx, 'link', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xs text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Description & Key Features</label>
+                    <textarea
+                      rows={2}
+                      value={proj.description || ''}
+                      onChange={(e) => handleProjectChange(idx, 'description', e.target.value)}
+                      className="w-full p-2 bg-black/40 border border-white/10 rounded-xs text-xs text-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Technologies (comma-separated)</label>
+                    <input
+                      type="text"
+                      value={proj.technologies?.join(', ') || ''}
+                      onChange={(e) => handleProjectChange(idx, 'technologies', e.target.value)}
+                      className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xs text-xs text-white font-mono"
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Education & Credentials */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between border-b border-white/10 pb-2">
+              <h4 className="text-xs font-bold text-white uppercase tracking-wider font-mono">
+                Education & Credentials
+              </h4>
+              <button
+                type="button"
+                onClick={handleAddEducation}
+                className="px-2.5 py-1 bg-[#00FF41]/10 text-[#00FF41] border border-[#00FF41]/30 hover:bg-[#00FF41]/20 rounded-xs text-[10px] font-mono font-bold uppercase flex items-center gap-1 cursor-pointer"
+              >
+                <Plus className="w-3 h-3" />
+                <span>Add Education</span>
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {profile.education?.map((edu, idx) => (
+                <div key={idx} className="p-3 bg-white/5 border border-white/10 rounded-xs relative flex items-center gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1 pr-6">
+                    <div>
+                      <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Degree / Certificate</label>
+                      <input
+                        type="text"
+                        value={edu.degree}
+                        onChange={(e) => handleEducationChange(idx, 'degree', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xs text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Institution</label>
+                      <input
+                        type="text"
+                        value={edu.institution}
+                        onChange={(e) => handleEducationChange(idx, 'institution', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xs text-xs text-white"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[9px] font-bold uppercase text-white/40 mb-1 font-mono">Graduation Year</label>
+                      <input
+                        type="text"
+                        value={edu.year}
+                        onChange={(e) => handleEducationChange(idx, 'year', e.target.value)}
+                        className="w-full px-2.5 py-1.5 bg-black/40 border border-white/10 rounded-xs text-xs text-white font-mono"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveEducation(idx)}
+                    className="text-white/40 hover:text-rose-400 cursor-pointer shrink-0"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
               ))}
             </div>

@@ -27,6 +27,7 @@ import { CoverLetterModal } from './components/CoverLetterModal';
 import { InterviewPrepDrawer } from './components/InterviewPrepDrawer';
 import { SavedReportsHistoryModal } from './components/SavedReportsHistoryModal';
 import { AuthModal } from './components/AuthModal';
+import { ProfileEditorModal } from './components/ProfileEditorModal';
 import { AlertCircle } from 'lucide-react';
 
 export default function App() {
@@ -41,6 +42,7 @@ export default function App() {
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isCoverLetterOpen, setIsCoverLetterOpen] = useState(false);
   const [isInterviewPrepOpen, setIsInterviewPrepOpen] = useState(false);
+  const [isProfileEditorOpen, setIsProfileEditorOpen] = useState(false);
 
   // User-specific saved CV reports
   const [savedReports, setSavedReports] = useState<any[]>(() => {
@@ -336,9 +338,29 @@ export default function App() {
       {isAuthOpen && (
         <AuthModal
           currentUser={currentUser}
+          savedProfile={savedProfile}
+          savedReportsCount={savedReports.length}
+          savedReports={savedReports}
           onUserChanged={handleUserChanged}
           onSignOut={handleSignOut}
+          onOpenProfileEditor={() => {
+            if (savedProfile) {
+              setIsProfileEditorOpen(true);
+            }
+          }}
+          onOpenHistory={() => setIsHistoryOpen(true)}
           onClose={() => setIsAuthOpen(false)}
+        />
+      )}
+
+      {isProfileEditorOpen && savedProfile && (
+        <ProfileEditorModal
+          initialProfile={savedProfile}
+          onSave={(updatedProfile, updatedUrls) => {
+            handleSaveProfile(updatedProfile, updatedUrls);
+            setIsProfileEditorOpen(false);
+          }}
+          onClose={() => setIsProfileEditorOpen(false)}
         />
       )}
 

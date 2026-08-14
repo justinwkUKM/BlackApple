@@ -43,12 +43,14 @@ export interface StylingConfig {
   photoShape: 'circle' | 'square' | 'rounded';
 }
 
-export type TemplateStyle = 'blackapple' | 'executive' | 'ivory' | 'modern' | 'ats' | 'portfolio';
+export type TemplateStyle = 'blackapple' | 'executive' | 'ivory' | 'modern' | 'ats' | 'portfolio' | 'classic';
 
 export interface UserProfileData {
   name: string;
   headline: string;
   location: string;
+  email?: string;
+  phone?: string;
   summary: string;
   topSkills: string[];
   experience: Array<{

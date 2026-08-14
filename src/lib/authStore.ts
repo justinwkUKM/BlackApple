@@ -200,6 +200,28 @@ export function registerUser(name: string, email: string): UserAccount {
   return newUser;
 }
 
+export function updateUserAccount(userId: string, updates: Partial<UserAccount>): UserAccount {
+  const users = getUsersDB();
+  const idx = users.findIndex((u) => u.id === userId);
+  let updatedUser: UserAccount;
+  if (idx >= 0) {
+    users[idx] = { ...users[idx], ...updates };
+    updatedUser = users[idx];
+  } else {
+    updatedUser = {
+      id: userId,
+      name: updates.name || 'User',
+      email: updates.email || '',
+      ...updates,
+      createdAt: updates.createdAt || new Date().toISOString(),
+    };
+    users.push(updatedUser);
+  }
+  saveUsersDB(users);
+  setCurrentUser(updatedUser);
+  return updatedUser;
+}
+
 // User-Specific Saved CVs API
 export function getUserCVs(userId: string): SavedCVItem[] {
   try {

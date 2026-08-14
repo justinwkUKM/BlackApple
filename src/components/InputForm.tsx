@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ResearchInput, SavedUserProfile, UserProfileData } from '../types';
-import { Globe, Linkedin, FileText, Link as LinkIcon, Building2, UserCheck, ArrowRight, Sparkles, ShieldCheck, Edit3, Trash2, ExternalLink, CheckCircle } from 'lucide-react';
+import { Globe, Linkedin, FileText, Link as LinkIcon, Building2, UserCheck, ArrowRight, Sparkles, ShieldCheck, Edit3, Trash2, ExternalLink, CheckCircle, Mail, Phone } from 'lucide-react';
 import { fetchAndParseUserProfile, getSavedCandidateUrlsLocal, saveCandidateUrlsLocal } from '../lib/profileService';
 import { ProfileEditorModal } from './ProfileEditorModal';
 
@@ -61,6 +61,44 @@ export const InputForm: React.FC<InputFormProps> = ({
     saveCandidateUrlsLocal(currentUserId, { websiteUrl: websiteUrl.trim(), linkedinUrl: linkedinUrl.trim(), githubUrl: val.trim() });
   };
 
+  const handleManualProfileSetup = () => {
+    const starterProfile: SavedUserProfile = {
+      userProfile: {
+        name: 'Candidate Professional',
+        headline: 'Experienced Technology & Product Specialist',
+        location: 'Remote / Global',
+        summary: 'Driven professional with expertise in technical delivery, strategic design, and high-impact project execution.',
+        topSkills: ['Product Strategy', 'Software Development', 'System Architecture', 'Project Execution'],
+        experience: [
+          {
+            company: 'Current Company / Consultancy',
+            role: 'Senior Specialist',
+            period: '2022 - Present',
+            description: 'Leading key product and technical deliverables.',
+            keyAchievements: ['Successfully launched core system features and customer solutions.'],
+          },
+        ],
+        education: [
+          {
+            degree: 'Bachelor Degree in Science, Engineering or Business',
+            institution: 'University',
+            year: '2020',
+          },
+        ],
+        projects: [],
+        onlinePresenceSummary: 'Manually configured candidate profile baseline.',
+      },
+      urls: {
+        websiteUrl: websiteUrl.trim(),
+        linkedinUrl: linkedinUrl.trim(),
+        githubUrl: githubUrl.trim(),
+      },
+      lastUpdated: new Date().toISOString(),
+    };
+    onSaveProfile(starterProfile.userProfile, starterProfile.urls);
+    setShowProfileEditor(true);
+  };
+
   const handleFetchUserProfile = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const hasWeb = websiteUrl.trim().length > 0;
@@ -86,6 +124,11 @@ export const InputForm: React.FC<InputFormProps> = ({
 
     try {
       const data = await fetchAndParseUserProfile(urlsToSave);
+      if (data && data.urls) {
+        if (data.urls.websiteUrl) setWebsiteUrl(data.urls.websiteUrl);
+        if (data.urls.linkedinUrl) setLinkedinUrl(data.urls.linkedinUrl);
+        if (data.urls.githubUrl) setGithubUrl(data.urls.githubUrl);
+      }
       onSaveProfile(data.userProfile, data.urls);
     } catch (err: any) {
       console.error('Profile fetch error:', err);
@@ -162,9 +205,23 @@ export const InputForm: React.FC<InputFormProps> = ({
                     </span>
                   </div>
                   <p className="text-xs text-white/70 font-mono">{savedProfile.userProfile.headline}</p>
-                  <p className="text-[10px] text-white/40 font-mono">
-                    {savedProfile.userProfile.location || 'Remote'} • {savedProfile.userProfile.experience?.length || 0} Positions • Updated {new Date(savedProfile.lastUpdated).toLocaleDateString()}
-                  </p>
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-white/50 font-mono pt-0.5">
+                    <span>{savedProfile.userProfile.location || 'Remote'}</span>
+                    {savedProfile.userProfile.email && (
+                      <span className="flex items-center gap-1 text-white/70">
+                        <Mail className="w-3 h-3 text-[#00FF41]" />
+                        <span>{savedProfile.userProfile.email}</span>
+                      </span>
+                    )}
+                    {savedProfile.userProfile.phone && (
+                      <span className="flex items-center gap-1 text-white/70">
+                        <Phone className="w-3 h-3 text-[#00FF41]" />
+                        <span>{savedProfile.userProfile.phone}</span>
+                      </span>
+                    )}
+                    <span>• {savedProfile.userProfile.experience?.length || 0} Positions</span>
+                    <span>• Updated {new Date(savedProfile.lastUpdated).toLocaleDateString()}</span>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -273,27 +330,38 @@ export const InputForm: React.FC<InputFormProps> = ({
               {/* Import Action Trigger */}
               <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <p className="text-[10px] text-white/40 font-mono italic">
-                  * Provide at least one URL. Your website & profile details will be saved for all future resume generations.
+                  * Provide URLs for automated crawling, or click Manual Setup to directly enter your experience.
                 </p>
 
-                <button
-                  type="button"
-                  disabled={isFetchingProfile || (!websiteUrl.trim() && !linkedinUrl.trim() && !githubUrl.trim())}
-                  onClick={handleFetchUserProfile}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-[#00FF41] hover:bg-[#00FF41]/90 text-black font-mono font-bold text-xs uppercase tracking-wider rounded-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shrink-0 shadow-sm"
-                >
-                  {isFetchingProfile ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                      <span>Researching Candidate Footprint...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles className="w-3.5 h-3.5" />
-                      <span>COMPILE & SAVE CANDIDATE PROFILE</span>
-                    </>
-                  )}
-                </button>
+                <div className="flex items-center gap-2 w-full sm:w-auto shrink-0">
+                  <button
+                    type="button"
+                    onClick={handleManualProfileSetup}
+                    className="flex-1 sm:flex-initial px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white font-mono font-bold text-xs uppercase tracking-wider rounded-xs border border-white/10 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <Edit3 className="w-3.5 h-3.5 text-[#00FF41]" />
+                    <span>MANUAL SETUP</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={isFetchingProfile || (!websiteUrl.trim() && !linkedinUrl.trim() && !githubUrl.trim())}
+                    onClick={handleFetchUserProfile}
+                    className="flex-1 sm:flex-initial px-5 py-2.5 bg-[#00FF41] hover:bg-[#00FF41]/90 text-black font-mono font-bold text-xs uppercase tracking-wider rounded-xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 cursor-pointer shadow-sm"
+                  >
+                    {isFetchingProfile ? (
+                      <>
+                        <div className="w-3.5 h-3.5 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                        <span>Researching Candidate...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>COMPILE PROFILE</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
 
               {profileFetchError && (
